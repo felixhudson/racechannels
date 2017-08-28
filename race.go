@@ -14,6 +14,7 @@ type Event struct {
 type Car struct {
 	Number       int
 	CurrentSpeed int
+	StartPos int
 }
 
 func main() {
@@ -23,87 +24,80 @@ func main() {
 	// each go-routine will emit 0 or more events when it hears a sim tick
 
 	events := make(chan Event, 10)
-	//cars := 2
-	sim := make([]chan bool, 0)
-	s1 := make(chan bool)
-	s2 := make(chan bool)
-	s3 := make(chan bool)
-	sim = append(sim, s1)
-	sim = append(sim, s2)
-	sim = append(sim, s3)
+
+	// start a event reader
+
+	board := make(map[int] int)
+	go leaderBoard(events, board)
 
 	// use a wait group to only quit when all closed
 	var wg sync.WaitGroup
+	c := Car{33, 5, 1}
 	wg.Add(1)
-	go car(sim[0], events, &wg)
+	go c.speedcar(events, &wg)
+	c1 := Car{5, 16,2}
 	wg.Add(1)
-	go forevercar(sim[1], events, &wg)
-	c := Car{33, 5}
-	wg.Add(1)
-	go c.vroom(sim[2], events, &wg)
-	// send a tick to start sim
-	fmt.Println("starting ticks")
-	for _, v := range sim {
-		v <- true
-	}
-	for _, v := range sim {
-		close(v)
-	}
+	go c1.speedcar(events, &wg)
 
 	wg.Wait()
+	close(events)
 	fmt.Println("all routines are done")
 
 }
 
-func car(tick <-chan bool, events chan<- Event, wg *sync.WaitGroup) {
-	// we can only listen to ticks and send events
-	// wait a little time then send an event and quit
-	fmt.Println("starting car, wait for tick")
-	t := <-tick
-	if t {
-		d := Event{1, "car", "time", ""}
-		events <- d
+func eventReader(events <-chan Event) {
+	for v := range events {
+		fmt.Printf("v = %+v\n", v)
 	}
-	fmt.Println("car finished")
-	wg.Done()
 }
 
-func (*Car) vroom(tick <-chan bool, events chan<- Event, wg *sync.WaitGroup) {
-	// get a tick but loop until done
-	ever := true
-	for ever {
-		time.Sleep(100 * time.Microsecond)
-		_, more := <-tick
-		if more {
-			fmt.Println("vroom a tick!")
-			d := Event{2, "car", "time", ""}
-			events <- d
-		} else {
-			ever = false
+func leaderBoard(events <-chan Event, board map[int]int) {
+	for v := range events {
+	// filter only sector times
+		if v.Emitter == "sector" {
+			if _,ok:= board[v.Car] ; !ok {
+				board[v.Car] =0
+			}
+			board[v.Car] = board[v.Car] +1
 		}
-
+		fmt.Println("----------")
+		printBoard(board)
+		fmt.Println("----------")
 	}
-	fmt.Println("vroom done")
-	wg.Done()
-
 }
 
-func forevercar(tick <-chan bool, events chan<- Event, wg *sync.WaitGroup) {
-	// get a tick but loop until done
-	ever := true
-	for ever {
-		time.Sleep(100 * time.Microsecond)
-		_, more := <-tick
-		if more {
-			fmt.Println("got a tick!")
-			d := Event{2, "car", "time", ""}
-			events <- d
-		} else {
-			ever = false
+func printBoard(data map[int]int) {
+	// we need to sort based on the value not key
+	//find min max in values
+	max := 0
+	min := 99
+	for _, v := range data {
+		if v > max {
+			max = v
 		}
-
+		if v < min {
+			min = v
+		}
 	}
-	fmt.Println("forever done")
-	wg.Done()
 
+
+	for i := max; i >= min ; i-- {
+		for k, v := range data {
+			if v == i{
+				fmt.Println("car", k, i)
+			}
+		}
+	}
+}
+
+func (c *Car) speedcar (events chan<- Event, wg *sync.WaitGroup) {
+	// delay amount based on car startpos
+	time.Sleep(time.Duration(c.StartPos) * time.Second)
+	for i := 0; i < 5; i++ {
+			d := Event{c.Number, "sector", "time", string(c.CurrentSpeed)}
+			events <- d
+			sectorTime := 1650 - (c.CurrentSpeed *100)
+			time.Sleep(time.Duration( sectorTime) * time.Millisecond)
+	}
+	wg.Done()
 }
