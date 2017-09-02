@@ -1,6 +1,7 @@
 package main
 
 import "fmt"
+import "strings"
 import "sync"
 import "time"
 
@@ -66,7 +67,7 @@ func leaderBoard(events <-chan Event, board map[int]int) {
 	fmt.Println("starting leaderboard")
 	for v := range events {
 		// filter only sector times
-		if v.Emitter == "sector" {
+		if strings.Index(v.Emitter,"sector" ) >= 0 {
 			if _, ok := board[v.Car]; !ok {
 				board[v.Car] = 0
 			}
@@ -113,8 +114,11 @@ func printBoard(data map[int]int, gaps map[int]time.Duration) {
 func (c *Car) speedcar(events chan<- Event, wg *sync.WaitGroup) {
 	// delay amount based on car startpos
 	time.Sleep(time.Duration(c.StartPos) * time.Second)
+	var sector,cs string
 	for i := 0; i < 10; i++ {
-		d := Event{c.Number, "sector", "time", string(c.CurrentSpeed)}
+	  cs = fmt.Sprintf("current speed %d" , c.CurrentSpeed)
+		sector = fmt.Sprintf("sector %d", (i%3))
+		d := Event{c.Number, sector, "time", cs}
 		events <- d
 		sectorTime := 1000 - (c.CurrentSpeed * 100)
 		time.Sleep(time.Duration(sectorTime) * time.Millisecond)
