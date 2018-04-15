@@ -180,8 +180,6 @@ func matrixBoard(events <-chan Event, cars []Car) {
 		}
 	}
 }
-func sortGroup(){
-}
 
 func printBoard(data map[int]int, gaps map[int]time.Duration) {
 	// we need to sort based on the value not key
